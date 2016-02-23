@@ -55,7 +55,7 @@ if __name__ == '__main__':
     print short_list.NUMBER
 
     for grism in ['G102','G141']:
-        #s = p.WISP_Source(par_num=167,obj_num=8,grism=grism,data_dir=data_dir,output_dir=output_dir)
-        #s.process()
-        res = main(short_list,grism)
-        np.savetxt(output_dir+'Par167/profile_%s_pars.dat'%grism,res,fmt='%5.f '+' '.join(['%8.2e' for i in range(res.shape[1]-1)]))
+        s = p.WISP_Source(par_num=167,obj_num=8,grism=grism,data_dir=data_dir,output_dir=output_dir)
+        s.process()
+        #res = main(short_list,grism)
+        #np.savetxt(output_dir+'Par167/profile_%s_pars.dat'%grism,res,fmt='%5.f '+' '.join(['%8.2e' for i in range(res.shape[1]-1)]))
