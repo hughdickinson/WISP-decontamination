@@ -36,10 +36,10 @@ def plot_clean_grism(grism,entry,grism_hdr,grism_img,grism_model,grism_img_clean
     cbaxes = fig.add_axes([0.05, 0.05, 0.9, 0.02])
     cbax   = fig.colorbar(mappable=im, cax=cbaxes, orientation='horizontal')
 
-    if grism_hdr['CRVAL1'] < 1e4:
+    if grism == 'G102':
         xc, dx = 8000., 11750. - 8000.
         ax3.set_xlim(7250,12750)
-    else:
+    elif grism == 'G141':
         xc, dx = 10500., 17500. - 10500.
         ax3.set_xlim(9500,18500)
 
