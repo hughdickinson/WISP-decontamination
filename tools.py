@@ -85,7 +85,7 @@ def mask_direct_image(img,hdr,sources,fill_value):
     return masked
 
 def mk_stamp_profile(entry,px_scale_cor,output_dir,filt):
-    stamp = fitsio.getdata('%s/stamps/stamp_%s_%i.fits' % (output_dir,filt,entry['NUMBER']))
+    stamp = fitsio.getdata('%s/Par%i/stamps/stamp_%s_%i.fits' % (output_dir,entry['PAR_NUM'],filt,entry['NUMBER']))
     nx = stamp.shape[1]
     stamp_trim = stamp[:,nx/3:2*nx/3]
     stamp_1D = np.sum(stamp_trim,axis=-1) / stamp_trim.shape[1]

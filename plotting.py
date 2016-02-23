@@ -17,7 +17,7 @@ def plot_subpx_shifts(grism,entry,pars,xf,yf,model_args,output_dir):
     ax.plot(xf,profile_model(xf,pars,model_args),c='k',ls='--')
     ax.plot(xf,yf,c='k')
     ax.set_xlim(min(xf),max(xf))
-    fig.savefig(output_dir+'/plots/profile_%s_%i.png' % (grism,entry['NUMBER']))
+    fig.savefig(output_dir+'/Par%i/plot_prof/profile_%s_%i.png' % (entry['PAR_NUM'],grism,entry['NUMBER']))
 
 def plot_clean_grism(grism,entry,grism_hdr,grism_img,grism_model,grism_img_clean,contams,subpx_shft,px_scale_cor,output_dir):
 
@@ -55,7 +55,7 @@ def plot_clean_grism(grism,entry,grism_hdr,grism_img,grism_model,grism_img_clean
             ry = yc + (contam['Y_IMAGE'] - entry['Y_IMAGE'])*px_scale_cor - contam['BBOX_Y']/2.*px_scale_cor+subpx
             ax.add_patch(Rectangle((rx,ry), dx, contam['BBOX_Y']*px_scale_cor,linewidth=0.5,facecolor='none',edgecolor='r'))
 
-    fig.savefig(output_dir+'/plots/grism_%s_%i.png' % (grism,entry['NUMBER']))
+    fig.savefig(output_dir+'Par%i/plot_grism/grism_%s_%i.png' % (entry['PAR_NUM'],grism,entry['NUMBER']))
 
 def plot_prior(p,hdr):
 

@@ -40,33 +40,53 @@ class WISP_Catalog():
     def get_catalog(self):
         return self.catalog
 
-class WISP_Field():
+class WISP_Source():
 
-    def __init__(self,data_dir,output_dir,catalog=None,par_num=None,grism=None,background=None):
+    def __init__(self,par_num,obj_num,grism,data_dir,output_dir,background=None,s=5):
 
         self.data_dir = data_dir
         self.output_dir = output_dir
-        os.system('mkdir -p %s/stamps' % self.output_dir)
+        os.system('mkdir -p %s/Par%i/plot_grism' % (self.output_dir,par_num))
+        os.system('mkdir -p %s/Par%i/plot_prof'  % (self.output_dir,par_num))
+        os.system('mkdir -p %s/Par%i/clean'      % (self.output_dir,par_num))
+        os.system('mkdir -p %s/Par%i/stamps'     % (self.output_dir,par_num))
 
-        if catalog is not None:
-            self.catalog = catalog
-        else:
-            self.catalog = WISP_Catalog(par_num=par_num,grism=grism,data_dir=data_dir).get_catalog()
+        self.catalog    = WISP_Catalog(par_num=par_num,grism=grism,data_dir=data_dir).get_catalog()
 
-        self.par_num    = self.catalog['PAR_NUM'][0]
-        self.grism      = self.catalog['GRISM'][0]
+        entry = self.catalog[self.catalog['NUMBER'] == obj_num]
+        if len(entry) == 1: self.entry = entry[0]
+        elif len(entry) == 0: raise Exception("No object with ID#%i found in Par%i." % (obj_num,par_num))
+        else: raise Exception("Multiple objects with ID#%i found in Par%i." % (obj_num,par_num))
+
+        self.grism      = self.entry['GRISM']
+        self.obj_num    = self.entry['NUMBER']
+        self.par_num    = self.entry['PAR_NUM']
         self.direct     = direct_key[self.grism]
         self.background = background
+        self.s          = s
+
+        if self.s % 2 == 0:
+            raise Exception('Provide an odd number of pixels to smooth over.')
 
         self.par_dir    = os.path.join(self.data_dir,'Par%i' % self.par_num)
         self.direct_dir = os.path.join(self.par_dir,'DATA/DIRECT_GRISM')
+        self.grism_dir  = os.path.join(self.par_dir,'%s_DRIZZLE' % self.grism)
 
-    def process(self):
+        self.px_scale_grism = 0.128254
+        self.px_scale_direct = 0.08
+        self.px_scale_cor = self.px_scale_direct / self.px_scale_grism
+
         self.get_direct()
         self.get_background(self.background)
-        self.mk_stamps()
+        self.get_grism_sens()
+        self.get_grism()
+        self.get_grism_contams()
+        self.get_grism1D()
+        self.get_profiles()
+        self.get_prior()
 
     def get_direct(self):
+
         self.direct_hdr = fitsio.getheader('%s/%sW_sci.fits' % (self.direct_dir,self.direct))
         self.direct_img = fitsio.getdata('%s/%sW_sci.fits' % (self.direct_dir,self.direct))
         self.direct_wcs = WCS(self.direct_hdr)
@@ -86,54 +106,17 @@ class WISP_Field():
         dx, dy = 5*entry['BBOX_X'], 5*entry['BBOX_Y']
         return get_direct_contams(self.catalog,entry,dx,dy)
 
-    def mk_stamps(self):
+    def mk_stamps(self,entry):
 
-        for entry in self.catalog:
-            sys.stdout.write("\rMaking direct image stamp for Obj#%i out of %i ... " % (entry['NUMBER'],len(self.catalog)),)
-            sys.stdout.flush()
+        if not os.path.isfile('%s/Par%i/stamps/stamp_%s_%i.fits' % (self.output_dir,entry['PAR_NUM'],self.direct,entry['NUMBER'])):
             contams = self.get_direct_contams(entry)
             masked  = mask_direct_image(self.direct_img_sub, self.direct_hdr, contams, fill_value=self.sky_median)
             stamp, stphdr = cut_stamps(masked,entry,self.direct_wcs,self.direct_hdr,scale=5.)
-            fitsio.writeto('%s/stamps/stamp_%s_%i.fits' % (self.output_dir,self.direct,entry['NUMBER']), data=stamp, header=stphdr, clobber=True)
-        sys.stdout.write("done.\n")
-
-class WISP_Source():
-
-    def __init__(self,catalog,entry,data_dir,output_dir,s=5):
-
-        self.data_dir = data_dir
-        self.output_dir = output_dir
-        os.system('mkdir -p %s/plots' % self.output_dir)
-        os.system('mkdir -p %s/clean' % self.output_dir)
-
-        self.catalog  = catalog
-        self.entry    = entry
-        self.grism    = self.entry['GRISM']
-        self.obj_num  = self.entry['NUMBER']
-        self.par_num  = self.entry['PAR_NUM']
-        self.direct   = direct_key[self.grism]
-        self.s        = s
-
-        if self.s % 2 == 0:
-            raise Exception('Provide an odd number of pixels to smooth over.')
-
-        self.par_dir    = os.path.join(self.data_dir,'Par%i' % self.par_num)
-        self.grism_dir  = os.path.join(self.par_dir,'%s_DRIZZLE' % self.grism)
-
-        self.px_scale_grism = 0.128254
-        self.px_scale_direct = 0.08
-        self.px_scale_cor = self.px_scale_direct / self.px_scale_grism
-
-        self.get_grism_sens()
-        self.get_grism()
-        self.get_grism_contams()
-        self.get_grism1D()
-        self.get_profiles()
-        self.get_prior()
+            fitsio.writeto('%s/Par%i/stamps/stamp_%s_%i.fits' % (self.output_dir,entry['PAR_NUM'],self.direct,entry['NUMBER']), data=stamp, header=stphdr, clobber=True)
 
     def get_grism_sens(self,fill_value=1e-15):
 
-        sens_file = fitsio.getdata('WFC3.%s.1st.sens.fits' % self.grism)
+        sens_file = fitsio.getdata('config/WFC3.%s.1st.sens.fits' % self.grism)
         waves, sens = sens_file['WAVELENGTH'], sens_file['SENSITIVITY']
         sens[sens==0] = fill_value
         self.grism_sens = scipy.interpolate.interp1d(waves,sens,bounds_error=False,fill_value=fill_value)
@@ -182,6 +165,8 @@ class WISP_Source():
         return self.subpx_pars
 
     def get_profiles(self):
+
+        _ = [self.mk_stamps(self.entry),] + [self.mk_stamps(contam) for contam in self.contams]
         self.d_prof =  mk_stamp_profile(self.entry,self.px_scale_cor,self.output_dir,self.direct)
         self.c_prof = [mk_stamp_profile(contam,self.px_scale_cor,self.output_dir,self.direct) for contam in self.contams]
         self.d_cen  = self.grism_img.shape[0] / 2.
@@ -238,7 +223,7 @@ class WISP_Source():
             hdu = fitsio.PrimaryHDU(header=self.grism_hdr,data=data)
             hdu.name = extname
             hdulist.append(hdu)
-        hdulist.writeto(self.output_dir+'/clean/aXeWFC3_%s_clean_ID%s.fits' % (self.grism,self.obj_num),clobber=True)
+        hdulist.writeto(self.output_dir+'Par%i/clean/aXeWFC3_%s_clean_ID%s.fits' % (self.par_num,self.grism,self.obj_num),clobber=True)
 
     def process(self):
 
