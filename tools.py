@@ -1,6 +1,9 @@
 import numpy as np
 import scipy.interpolate
 import astropy.io.fits as fitsio
+import uncertainties
+from uncertainties import unumpy
+from uncertainties import ufloat
 from astropy.nddata import Cutout2D
 
 direct_key = {'G102':'F110','G141':'F160'}
@@ -41,6 +44,9 @@ def bboxEllipse(a,b,theta):
 
 def moving_average(x, s=5) :
     ret = np.ma.cumsum(x, axis=-1)
+    # difference between sumulative sums is integral between indices
+    # subtaraction is between pairs of indices separated by s, but rooted
+    # at unit intervals.
     ret[:,s:] = ret[:,s:] - ret[:,:-s]
     return ret[:,s - 1:] / s
 
@@ -87,7 +93,7 @@ def mask_direct_image(img,hdr,sources,fill_value):
 def mk_stamp_profile(entry,px_scale_cor,output_dir,filt):
     stamp = fitsio.getdata('%s/Par%i/stamps/stamp_%s_%i.fits' % (output_dir,entry['PAR_NUM'],filt,entry['NUMBER']))
     nx = stamp.shape[1]
-    stamp_trim = stamp[:,nx/3:2*nx/3]
+    stamp_trim = stamp[:,int(nx/3):int(2*nx/3)]
     stamp_1D = np.sum(stamp_trim,axis=-1) / stamp_trim.shape[1]
     stamp_1D.clip(0)
     pixels = np.arange(len(stamp_1D)) - 0.5*len(stamp_1D)
@@ -105,6 +111,10 @@ def direct_model(x,pars,d_prof,d_cen):
 
 def contam_model(x,pars,c_prof,c_cen):
     contam = np.array([A*prof(x - cen + shft) for A,shft,prof,cen in zip(pars[3::2],pars[4::2],c_prof,c_cen)])
+    return np.sum(contam,axis=0)
+
+def uncertain_contam_model(x,pars,std_devs,c_prof,c_cen):
+    contam = np.array([ufloat(A, sigmaA)*prof(x - cen + shft) for A,shft,prof,cen,sigmaA in zip(pars[3::2],pars[4::2],c_prof,c_cen,std_devs)])
     return np.sum(contam,axis=0)
 
 def profile_model(x,pars,model_args):

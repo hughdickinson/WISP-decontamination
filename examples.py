@@ -52,7 +52,7 @@ if __name__ == '__main__':
     cond5 = np.array([os.path.isfile('%s/Par%s/G141_DRIZZLE/aXeWFC3_G141_mef_ID%i.fits' % (data_dir,catalog['PAR_NUM'][0],i)) for i in catalog['NUMBER']])
     cond  = cond1 & cond2 & cond3 & cond4 & cond5
     short_list = catalog[cond]
-    print short_list.NUMBER
+    print (short_list.NUMBER)
 
     for grism in ['G102','G141']:
         s = p.WISP_Source(par_num=167,obj_num=8,grism=grism,data_dir=data_dir,output_dir=output_dir)
